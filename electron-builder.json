@@ -1,0 +1,42 @@
+{
+  "appId": "com.aj.bokforing",
+  "productName": "AJ Bokföring",
+  "directories": {
+    "output": "release"
+  },
+  "files": [
+    "dist/**/*",
+    "dist-electron/**/*"
+  ],
+  "mac": {
+    "category": "public.app-category.finance",
+    "target": [
+      {
+        "target": "dmg",
+        "arch": ["universal"]
+      }
+    ],
+    "icon": "build/icon.icns"
+  },
+  "dmg": {
+    "contents": [
+      {
+        "x": 130,
+        "y": 220
+      },
+      {
+        "x": 410,
+        "y": 220,
+        "type": "link",
+        "path": "/Applications"
+      }
+    ]
+  },
+  "extraResources": [
+    {
+      "from": "resources/",
+      "to": "resources/",
+      "filter": ["**/*"]
+    }
+  ]
+}
