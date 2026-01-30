@@ -48,6 +48,94 @@ function initializeDatabase(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_transaction_lines_transaction ON transaction_lines(transaction_id);
     CREATE INDEX IF NOT EXISTS idx_transaction_lines_account ON transaction_lines(account_id);
     CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date);
+
+    -- Årshantering
+    CREATE TABLE IF NOT EXISTS fiscal_years (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      year INTEGER NOT NULL UNIQUE,
+      is_active INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Kundregister
+    CREATE TABLE IF NOT EXISTS customers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      org_number TEXT,
+      address TEXT,
+      postal_code TEXT,
+      city TEXT,
+      email TEXT,
+      phone TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Leverantörsregister
+    CREATE TABLE IF NOT EXISTS suppliers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      org_number TEXT,
+      address TEXT,
+      postal_code TEXT,
+      city TEXT,
+      email TEXT,
+      phone TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Kundfakturor (utgående)
+    CREATE TABLE IF NOT EXISTS customer_invoices (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      fiscal_year_id INTEGER NOT NULL,
+      customer_id INTEGER,
+      invoice_number TEXT,
+      invoice_date TEXT,
+      due_date TEXT,
+      amount REAL,
+      vat REAL,
+      total REAL,
+      file_path TEXT NOT NULL,
+      file_name TEXT NOT NULL,
+      parsed_content TEXT,
+      status TEXT DEFAULT 'imported',
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (fiscal_year_id) REFERENCES fiscal_years(id),
+      FOREIGN KEY (customer_id) REFERENCES customers(id)
+    );
+
+    -- Leverantörsfakturor (inkommande)
+    CREATE TABLE IF NOT EXISTS supplier_invoices (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      fiscal_year_id INTEGER NOT NULL,
+      supplier_id INTEGER,
+      invoice_number TEXT,
+      invoice_date TEXT,
+      due_date TEXT,
+      amount REAL,
+      vat REAL,
+      total REAL,
+      file_path TEXT NOT NULL,
+      file_name TEXT NOT NULL,
+      parsed_content TEXT,
+      status TEXT DEFAULT 'imported',
+      payment_date TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (fiscal_year_id) REFERENCES fiscal_years(id),
+      FOREIGN KEY (supplier_id) REFERENCES suppliers(id)
+    );
+
+    -- Mappkonfiguration
+    CREATE TABLE IF NOT EXISTS invoice_folders (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      path TEXT NOT NULL UNIQUE,
+      last_scanned TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_customer_invoices_fiscal_year ON customer_invoices(fiscal_year_id);
+    CREATE INDEX IF NOT EXISTS idx_customer_invoices_customer ON customer_invoices(customer_id);
+    CREATE INDEX IF NOT EXISTS idx_supplier_invoices_fiscal_year ON supplier_invoices(fiscal_year_id);
+    CREATE INDEX IF NOT EXISTS idx_supplier_invoices_supplier ON supplier_invoices(supplier_id);
   `);
 
   // Kolla om kontoplan redan finns
@@ -55,6 +143,12 @@ function initializeDatabase(db: Database.Database): void {
 
   if (count.count === 0) {
     seedAccounts(db);
+  }
+
+  // Seed fiscal year 2025 if not exists
+  const fiscalYearCount = db.prepare('SELECT COUNT(*) as count FROM fiscal_years').get() as { count: number };
+  if (fiscalYearCount.count === 0) {
+    db.prepare('INSERT INTO fiscal_years (year, is_active) VALUES (2025, 1)').run();
   }
 }
 

@@ -103,56 +103,72 @@ function TransactionForm({ accounts, transaction, onSubmit, onCancel }: Transact
   };
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6">
-      <h2 className="text-lg font-semibold mb-4">
-        {transaction ? 'Redigera verifikation' : 'Ny verifikation'}
-      </h2>
+    <form onSubmit={handleSubmit} className="card p-6">
+      <div className="flex items-center gap-4 mb-6">
+        <div className="w-12 h-12 rounded-xl bg-primary-500/20 flex items-center justify-center">
+          <DocumentIcon className="w-6 h-6 text-primary-400" />
+        </div>
+        <div>
+          <h2 className="text-xl font-semibold text-white">
+            {transaction ? 'Redigera verifikation' : 'Ny verifikation'}
+          </h2>
+          <p className="text-dark-400 text-sm">Fyll i uppgifter för bokföringen</p>
+        </div>
+      </div>
 
       {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm flex items-center gap-3">
+          <ExclamationIcon className="w-5 h-5 flex-shrink-0" />
           {error}
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4 mb-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Datum</label>
+          <label className="block text-sm font-medium text-dark-200 mb-2">Datum</label>
           <input
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            className="input-field"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Beskrivning</label>
+          <label className="block text-sm font-medium text-dark-200 mb-2">Beskrivning</label>
           <input
             type="text"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="T.ex. Inköp kontorsmaterial"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            className="input-field"
           />
         </div>
       </div>
 
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">Konteringsrader</label>
-        <div className="space-y-2">
-          <div className="grid grid-cols-12 gap-2 text-xs font-medium text-gray-500 px-1">
-            <div className="col-span-6">Konto</div>
-            <div className="col-span-2 text-right">Debet</div>
-            <div className="col-span-2 text-right">Kredit</div>
-            <div className="col-span-2"></div>
-          </div>
+      <div className="mb-6">
+        <label className="block text-sm font-medium text-dark-200 mb-3">Konteringsrader</label>
 
+        {/* Header */}
+        <div className="hidden md:grid grid-cols-12 gap-3 text-xs font-medium text-dark-400 uppercase tracking-wider px-1 mb-2">
+          <div className="col-span-6">Konto</div>
+          <div className="col-span-2 text-right">Debet</div>
+          <div className="col-span-2 text-right">Kredit</div>
+          <div className="col-span-2"></div>
+        </div>
+
+        {/* Lines */}
+        <div className="space-y-2">
           {lines.map((line, index) => (
-            <div key={index} className="grid grid-cols-12 gap-2 items-center">
-              <div className="col-span-6">
+            <div
+              key={index}
+              className="grid grid-cols-12 gap-3 items-center p-3 rounded-xl bg-dark-800/30 animate-fade-in"
+              style={{ animationDelay: `${index * 50}ms` }}
+            >
+              <div className="col-span-12 md:col-span-6">
                 <select
                   value={line.accountId}
                   onChange={(e) => updateLine(index, 'accountId', parseInt(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+                  className="input-field text-sm"
                 >
                   <option value={0}>Välj konto...</option>
                   {accounts.map((account) => (
@@ -162,7 +178,7 @@ function TransactionForm({ accounts, transaction, onSubmit, onCancel }: Transact
                   ))}
                 </select>
               </div>
-              <div className="col-span-2">
+              <div className="col-span-5 md:col-span-2">
                 <input
                   type="number"
                   step="0.01"
@@ -170,10 +186,10 @@ function TransactionForm({ accounts, transaction, onSubmit, onCancel }: Transact
                   value={line.debit}
                   onChange={(e) => updateLine(index, 'debit', e.target.value)}
                   placeholder="0.00"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm text-right"
+                  className="input-field text-sm text-right"
                 />
               </div>
-              <div className="col-span-2">
+              <div className="col-span-5 md:col-span-2">
                 <input
                   type="number"
                   step="0.01"
@@ -181,7 +197,7 @@ function TransactionForm({ accounts, transaction, onSubmit, onCancel }: Transact
                   value={line.credit}
                   onChange={(e) => updateLine(index, 'credit', e.target.value)}
                   placeholder="0.00"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm text-right"
+                  className="input-field text-sm text-right"
                 />
               </div>
               <div className="col-span-2 flex justify-center">
@@ -189,11 +205,9 @@ function TransactionForm({ accounts, transaction, onSubmit, onCancel }: Transact
                   <button
                     type="button"
                     onClick={() => removeLine(index)}
-                    className="p-1 text-gray-400 hover:text-red-500"
+                    className="p-2 text-dark-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
                   >
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
+                    <TrashIcon className="w-4 h-4" />
                   </button>
                 )}
               </div>
@@ -204,37 +218,91 @@ function TransactionForm({ accounts, transaction, onSubmit, onCancel }: Transact
         <button
           type="button"
           onClick={addLine}
-          className="mt-2 text-sm text-primary-600 hover:text-primary-700 font-medium"
+          className="mt-3 text-sm text-primary-400 hover:text-primary-300 font-medium flex items-center gap-1"
         >
-          + Lägg till rad
+          <PlusIcon className="w-4 h-4" />
+          Lägg till rad
         </button>
       </div>
 
-      <div className="flex items-center justify-between border-t border-gray-200 pt-4">
-        <div className="text-sm">
-          <span className={`font-medium ${isBalanced ? 'text-green-600' : 'text-red-600'}`}>
-            Debet: {totalDebit.toFixed(2)} | Kredit: {totalCredit.toFixed(2)}
-            {isBalanced ? ' (Balanserad)' : ' (Obalanserad)'}
+      {/* Balance indicator & Actions */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-4 border-t border-dark-700/50">
+        <div className={`flex items-center gap-3 px-4 py-2 rounded-xl ${
+          isBalanced
+            ? 'bg-accent-green/10 border border-accent-green/30'
+            : 'bg-red-500/10 border border-red-500/30'
+        }`}>
+          {isBalanced ? (
+            <CheckIcon className="w-5 h-5 text-accent-green" />
+          ) : (
+            <ExclamationIcon className="w-5 h-5 text-red-400" />
+          )}
+          <span className={`text-sm font-medium ${isBalanced ? 'text-accent-green' : 'text-red-400'}`}>
+            D: {totalDebit.toFixed(2)} | K: {totalCredit.toFixed(2)}
+            <span className="ml-2 text-xs opacity-75">
+              {isBalanced ? '(Balanserad)' : '(Obalanserad)'}
+            </span>
           </span>
         </div>
-        <div className="flex gap-2">
+
+        <div className="flex gap-3">
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium"
+            className="btn-secondary"
           >
             Avbryt
           </button>
           <button
             type="submit"
             disabled={submitting || !isBalanced}
-            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {submitting ? 'Sparar...' : transaction ? 'Uppdatera' : 'Spara'}
           </button>
         </div>
       </div>
     </form>
+  );
+}
+
+function DocumentIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+  );
+}
+
+function ExclamationIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+    </svg>
+  );
+}
+
+function CheckIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+    </svg>
+  );
+}
+
+function TrashIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+    </svg>
+  );
+}
+
+function PlusIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+    </svg>
   );
 }
 

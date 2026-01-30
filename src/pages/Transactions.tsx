@@ -44,33 +44,48 @@ function Transactions() {
   if (loading && transactions.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Laddar...</div>
+        <div className="flex items-center gap-3 text-dark-400">
+          <div className="w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+          Laddar...
+        </div>
       </div>
     );
   }
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Verifikationer</h1>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-white mb-2">Verifikationer</h1>
+          <p className="text-dark-400">{transactions.length} bokförda händelser</p>
+        </div>
         {!showForm && !editingTransaction && (
           <button
             onClick={() => setShowForm(true)}
-            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-medium"
+            className="btn-primary flex items-center gap-2"
           >
+            <PlusIcon className="w-5 h-5" />
             Ny verifikation
           </button>
         )}
       </div>
 
+      {/* Error */}
       {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg">
-          {error}
+        <div className="card p-4 border-red-500/30 bg-red-500/10 animate-fade-in">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center">
+              <ExclamationIcon className="w-5 h-5 text-red-400" />
+            </div>
+            <p className="text-red-400">{error}</p>
+          </div>
         </div>
       )}
 
+      {/* Form */}
       {(showForm || editingTransaction) && (
-        <div className="mb-6">
+        <div className="animate-fade-in">
           <TransactionForm
             accounts={accounts}
             transaction={editingTransaction}
@@ -80,12 +95,29 @@ function Transactions() {
         </div>
       )}
 
+      {/* List */}
       <TransactionList
         transactions={transactions}
         onEdit={handleEdit}
         onDelete={handleDelete}
       />
     </div>
+  );
+}
+
+function PlusIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+    </svg>
+  );
+}
+
+function ExclamationIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+    </svg>
   );
 }
 

@@ -32,29 +32,52 @@ function Accounts() {
   if (loading && accounts.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Laddar...</div>
+        <div className="flex items-center gap-3 text-dark-400">
+          <div className="w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+          Laddar...
+        </div>
       </div>
     );
   }
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Kontoplan</h1>
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-3xl font-bold text-white mb-2">Kontoplan</h1>
+        <p className="text-dark-400">Hantera din kontoplan enligt BAS-standarden</p>
+      </div>
 
+      {/* Error */}
       {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg">
-          {error}
+        <div className="card p-4 border-red-500/30 bg-red-500/10 animate-fade-in">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center">
+              <ExclamationIcon className="w-5 h-5 text-red-400" />
+            </div>
+            <p className="text-red-400">{error}</p>
+          </div>
         </div>
       )}
 
+      {/* Edit Modal */}
       {editingAccount && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-            <h2 className="text-lg font-semibold mb-4">Redigera konto</h2>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
+          <div className="card p-6 w-full max-w-md mx-4 animate-slide-up">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-12 h-12 rounded-xl bg-primary-500/20 flex items-center justify-center">
+                <EditIcon className="w-6 h-6 text-primary-400" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-white">Redigera konto</h2>
+                <p className="text-dark-400 text-sm">Uppdatera kontoinformationen</p>
+              </div>
+            </div>
+
             <form onSubmit={handleUpdate}>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-dark-200 mb-2">
                     Kontonummer
                   </label>
                   <input
@@ -63,11 +86,11 @@ function Accounts() {
                     onChange={(e) =>
                       setEditingAccount({ ...editingAccount, account_number: e.target.value })
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    className="input-field"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-dark-200 mb-2">
                     Kontonamn
                   </label>
                   <input
@@ -76,11 +99,11 @@ function Accounts() {
                     onChange={(e) =>
                       setEditingAccount({ ...editingAccount, name: e.target.value })
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    className="input-field"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-dark-200 mb-2">
                     Kontotyp
                   </label>
                   <select
@@ -91,7 +114,7 @@ function Accounts() {
                         type: e.target.value as AccountType,
                       })
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    className="input-field"
                   >
                     {Object.entries(accountTypeLabels).map(([value, label]) => (
                       <option key={value} value={value}>
@@ -101,17 +124,17 @@ function Accounts() {
                   </select>
                 </div>
               </div>
-              <div className="flex justify-end gap-2 mt-6">
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-dark-700/50">
                 <button
                   type="button"
                   onClick={() => setEditingAccount(null)}
-                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium"
+                  className="btn-secondary"
                 >
                   Avbryt
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-medium"
+                  className="btn-primary"
                 >
                   Spara
                 </button>
@@ -121,6 +144,7 @@ function Accounts() {
         </div>
       )}
 
+      {/* Account List */}
       <AccountList
         accounts={accounts}
         onEdit={handleEdit}
@@ -128,6 +152,22 @@ function Accounts() {
         onCreate={createAccount}
       />
     </div>
+  );
+}
+
+function ExclamationIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+    </svg>
+  );
+}
+
+function EditIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+    </svg>
   );
 }
 

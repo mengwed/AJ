@@ -7,11 +7,15 @@ interface LayoutProps {
 
 function Layout({ children }: LayoutProps) {
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen bg-dark-950 overflow-hidden">
+      {/* Ambient background glows */}
+      <div className="ambient-glow ambient-glow-1" />
+      <div className="ambient-glow ambient-glow-2" />
+
       <Sidebar />
-      <main className="flex-1 overflow-auto">
-        <div className="drag-region h-8 bg-gray-100" />
-        <div className="p-6">
+      <main className="flex-1 overflow-auto relative">
+        <div className="drag-region h-8 bg-transparent" />
+        <div className="p-8 animate-fade-in">
           {children}
         </div>
       </main>

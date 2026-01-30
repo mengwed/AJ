@@ -1,6 +1,15 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'path';
-import * as db from './database';
+import { fileURLToPath } from 'url';
+import * as db from './database.js';
+
+// ESM __dirname polyfill
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+import * as fiscalYears from './fiscalYears.js';
+import * as customers from './customers.js';
+import * as suppliers from './suppliers.js';
+import * as invoices from './invoices.js';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -22,7 +31,7 @@ function createWindow(): void {
   });
 
   if (isDev) {
-    mainWindow.loadURL('http://localhost:5173');
+    mainWindow.loadURL('http://localhost:5177');
     mainWindow.webContents.openDevTools();
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
@@ -58,6 +67,63 @@ function setupIpcHandlers(): void {
   ipcMain.handle('db:getIncomeStatement', (_, startDate?: string, endDate?: string) =>
     db.getIncomeStatement(startDate, endDate));
   ipcMain.handle('db:getDashboardStats', () => db.getDashboardStats());
+
+  // Fiscal Years
+  ipcMain.handle('db:getAllFiscalYears', () => fiscalYears.getAllFiscalYears());
+  ipcMain.handle('db:getFiscalYearById', (_, id: number) => fiscalYears.getFiscalYearById(id));
+  ipcMain.handle('db:getActiveFiscalYear', () => fiscalYears.getActiveFiscalYear());
+  ipcMain.handle('db:createFiscalYear', (_, year: number) => fiscalYears.createFiscalYear(year));
+  ipcMain.handle('db:setActiveFiscalYear', (_, id: number) => fiscalYears.setActiveFiscalYear(id));
+  ipcMain.handle('db:deleteFiscalYear', (_, id: number) => fiscalYears.deleteFiscalYear(id));
+
+  // Customers
+  ipcMain.handle('db:getAllCustomers', () => customers.getAllCustomers());
+  ipcMain.handle('db:getCustomerById', (_, id: number) => customers.getCustomerById(id));
+  ipcMain.handle('db:searchCustomers', (_, query: string) => customers.searchCustomers(query));
+  ipcMain.handle('db:createCustomer', (_, data: customers.CustomerInput) => customers.createCustomer(data));
+  ipcMain.handle('db:updateCustomer', (_, id: number, data: customers.CustomerInput) => customers.updateCustomer(id, data));
+  ipcMain.handle('db:deleteCustomer', (_, id: number) => customers.deleteCustomer(id));
+
+  // Suppliers
+  ipcMain.handle('db:getAllSuppliers', () => suppliers.getAllSuppliers());
+  ipcMain.handle('db:getSupplierById', (_, id: number) => suppliers.getSupplierById(id));
+  ipcMain.handle('db:searchSuppliers', (_, query: string) => suppliers.searchSuppliers(query));
+  ipcMain.handle('db:createSupplier', (_, data: suppliers.SupplierInput) => suppliers.createSupplier(data));
+  ipcMain.handle('db:updateSupplier', (_, id: number, data: suppliers.SupplierInput) => suppliers.updateSupplier(id, data));
+  ipcMain.handle('db:deleteSupplier', (_, id: number) => suppliers.deleteSupplier(id));
+
+  // Invoice Folders
+  ipcMain.handle('db:getAllInvoiceFolders', () => invoices.getAllInvoiceFolders());
+  ipcMain.handle('db:addInvoiceFolder', (_, folderPath: string) => invoices.addInvoiceFolder(folderPath));
+  ipcMain.handle('db:removeInvoiceFolder', (_, id: number) => invoices.removeInvoiceFolder(id));
+  ipcMain.handle('db:selectFolder', () => invoices.selectFolder());
+
+  // Customer Invoices
+  ipcMain.handle('db:getCustomerInvoices', (_, fiscalYearId: number) => invoices.getCustomerInvoices(fiscalYearId));
+  ipcMain.handle('db:getCustomerInvoiceById', (_, id: number) => invoices.getCustomerInvoiceById(id));
+  ipcMain.handle('db:updateCustomerInvoice', (_, id: number, data: Parameters<typeof invoices.updateCustomerInvoice>[1]) =>
+    invoices.updateCustomerInvoice(id, data));
+  ipcMain.handle('db:deleteCustomerInvoice', (_, id: number) => invoices.deleteCustomerInvoice(id));
+
+  // Supplier Invoices
+  ipcMain.handle('db:getSupplierInvoices', (_, fiscalYearId: number) => invoices.getSupplierInvoices(fiscalYearId));
+  ipcMain.handle('db:getSupplierInvoiceById', (_, id: number) => invoices.getSupplierInvoiceById(id));
+  ipcMain.handle('db:updateSupplierInvoice', (_, id: number, data: Parameters<typeof invoices.updateSupplierInvoice>[1]) =>
+    invoices.updateSupplierInvoice(id, data));
+  ipcMain.handle('db:deleteSupplierInvoice', (_, id: number) => invoices.deleteSupplierInvoice(id));
+
+  // Import Operations
+  ipcMain.handle('db:scanAndImportFolder', (_, folderId: number, fiscalYearId: number) =>
+    invoices.scanAndImportFolder(folderId, fiscalYearId));
+  ipcMain.handle('db:selectAndImportFiles', (_, fiscalYearId: number) =>
+    invoices.selectAndImportFiles(fiscalYearId));
+  ipcMain.handle('db:openInvoiceFile', (_, filePath: string) => invoices.openInvoiceFile(filePath));
+
+  // Year Folder Import
+  ipcMain.handle('db:selectYearFolder', () => invoices.selectYearFolder());
+  ipcMain.handle('db:scanYearFolder', (_, folderPath: string) => invoices.scanYearFolder(folderPath));
+  ipcMain.handle('db:importYearFolder', (_, folderPath: string, year: number) =>
+    invoices.importYearFolder(folderPath, year));
 }
 
 app.whenReady().then(() => {
