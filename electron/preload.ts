@@ -216,6 +216,13 @@ export interface PdfReadResult {
   error?: string;
 }
 
+export interface ExportResult {
+  success: boolean;
+  filePath?: string;
+  rowCount?: number;
+  error?: string;
+}
+
 const api = {
   // Categories
   getAllCategories: (): Promise<Category[]> => ipcRenderer.invoke('db:getAllCategories'),
@@ -339,6 +346,10 @@ const api = {
     ipcRenderer.invoke('db:getInvoicesByCustomerId', customerId),
   getInvoicesBySupplierId: (supplierId: number): Promise<{ invoices: SupplierInvoice[]; years: number[] }> =>
     ipcRenderer.invoke('db:getInvoicesBySupplierId', supplierId),
+
+  // Excel export
+  exportInvoicesToExcel: (fiscalYearId: number): Promise<ExportResult> =>
+    ipcRenderer.invoke('db:exportInvoicesToExcel', fiscalYearId),
 };
 
 contextBridge.exposeInMainWorld('api', api);

@@ -78,5 +78,8 @@ interface Window {
     // Invoices by entity
     getInvoicesByCustomerId: (customerId: number) => Promise<{ invoices: import('./types').CustomerInvoice[]; years: number[] }>;
     getInvoicesBySupplierId: (supplierId: number) => Promise<{ invoices: import('./types').SupplierInvoice[]; years: number[] }>;
+
+    // Excel export
+    exportInvoicesToExcel: (fiscalYearId: number) => Promise<import('./types').ExportResult>;
   };
 }

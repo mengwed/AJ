@@ -135,6 +135,10 @@ function setupIpcHandlers(): void {
     invoices.getInvoicesByCustomerId(customerId));
   ipcMain.handle('db:getInvoicesBySupplierId', (_, supplierId: number) =>
     invoices.getInvoicesBySupplierId(supplierId));
+
+  // Excel export
+  ipcMain.handle('db:exportInvoicesToExcel', (_, fiscalYearId: number) =>
+    invoices.exportInvoicesToExcel(fiscalYearId));
 }
 
 app.whenReady().then(() => {

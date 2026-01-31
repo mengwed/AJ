@@ -5,6 +5,8 @@ import * as path from 'path';
 import { PDFParse } from 'pdf-parse';
 import { findOrCreateSupplier } from './suppliers.js';
 import { findOrCreateCustomer } from './customers.js';
+import * as XLSX from 'xlsx';
+import { getFiscalYearById } from './fiscalYears.js';
 
 // Regex pattern for customer invoices: YYYY-MM-DD Faktura [nummer/kundnamn]
 // OBS: "Faktura" måste följas av mellanslag (inte "Fakturaportal" etc)
@@ -2166,4 +2168,110 @@ export function batchReExtractAmounts(fiscalYearId: number): BatchReExtractResul
   }
 
   return result;
+}
+
+// ========== Excel Export ==========
+
+export interface ExportResult {
+  success: boolean;
+  filePath?: string;
+  rowCount?: number;
+  error?: string;
+}
+
+interface ExcelRow {
+  Typ: string;
+  Kategori: string;
+  Datum: string;
+  Filnamn: string;
+  'Kund/Leverantör': string;
+  'Belopp ex moms': number | null;
+  'Moms': number | null;
+  'Belopp ink moms': number | null;
+}
+
+export async function exportInvoicesToExcel(fiscalYearId: number): Promise<ExportResult> {
+  try {
+    // Hämta räkenskapsår för filnamn
+    const fiscalYear = getFiscalYearById(fiscalYearId);
+    if (!fiscalYear) {
+      return { success: false, error: 'Räkenskapsår hittades inte' };
+    }
+
+    // Visa spara-dialog
+    const defaultFileName = `Fakturor_${fiscalYear.year}.xlsx`;
+    const saveResult = await dialog.showSaveDialog({
+      title: 'Exportera fakturor till Excel',
+      defaultPath: defaultFileName,
+      filters: [
+        { name: 'Excel-filer', extensions: ['xlsx'] },
+      ],
+    });
+
+    if (saveResult.canceled || !saveResult.filePath) {
+      return { success: false, error: 'Export avbruten' };
+    }
+
+    // Hämta kundfakturor
+    const customerInvoices = getCustomerInvoices(fiscalYearId);
+
+    // Hämta leverantörsfakturor
+    const supplierInvoices = getSupplierInvoices(fiscalYearId);
+
+    // Bygg dataset
+    const rows: ExcelRow[] = [];
+
+    for (const inv of customerInvoices) {
+      rows.push({
+        Typ: 'Kundfaktura',
+        Kategori: '',
+        Datum: inv.invoice_date || '',
+        Filnamn: inv.file_name,
+        'Kund/Leverantör': inv.customer_name || '',
+        'Belopp ex moms': inv.amount,
+        'Moms': inv.vat,
+        'Belopp ink moms': inv.total,
+      });
+    }
+
+    for (const inv of supplierInvoices) {
+      rows.push({
+        Typ: 'Leverantörsfaktura',
+        Kategori: inv.effective_category_name || '',
+        Datum: inv.invoice_date || '',
+        Filnamn: inv.file_name,
+        'Kund/Leverantör': inv.supplier_name || '',
+        'Belopp ex moms': inv.amount,
+        'Moms': inv.vat,
+        'Belopp ink moms': inv.total,
+      });
+    }
+
+    // Sortera på datum
+    rows.sort((a, b) => {
+      if (!a.Datum && !b.Datum) return 0;
+      if (!a.Datum) return 1;
+      if (!b.Datum) return -1;
+      return a.Datum.localeCompare(b.Datum);
+    });
+
+    // Skapa Excel-fil
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Fakturor');
+
+    // Skriv till fil
+    XLSX.writeFile(workbook, saveResult.filePath);
+
+    return {
+      success: true,
+      filePath: saveResult.filePath,
+      rowCount: rows.length,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Okänt fel vid export',
+    };
+  }
 }

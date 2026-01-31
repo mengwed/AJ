@@ -106,6 +106,13 @@ function Dashboard() {
         </div>
       </div>
 
+      {/* Welcome Message */}
+      <div className="card p-6 bg-gradient-to-r from-primary-600/20 to-accent-pink/20 border-primary-500/30">
+        <p className="text-lg text-white">
+          Älskade Anne ❤️ - ta det lugnt, allt är under kontroll - ropa på Ulrika om du stöter på patrull. Enagua - för evigt!
+        </p>
+      </div>
+
       {/* Stat Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         {/* Intäkter */}

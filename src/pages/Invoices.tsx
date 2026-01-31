@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { FiscalYear, CustomerInvoice, SupplierInvoice, ImportResult, Category } from '../types';
+import { FiscalYear, CustomerInvoice, SupplierInvoice, ImportResult, Category, ExportResult } from '../types';
 import YearSelector from '../components/YearSelector';
 import InvoiceList from '../components/InvoiceList';
 import YearImportModal from '../components/YearImportModal';
@@ -22,6 +22,7 @@ function Invoices() {
   const [editingCustomerInvoiceId, setEditingCustomerInvoiceId] = useState<number | null>(null);
   const [editingSupplierInvoiceId, setEditingSupplierInvoiceId] = useState<number | null>(null);
   const [reExtractResult, setReExtractResult] = useState<{ customerInvoicesUpdated: number; supplierInvoicesUpdated: number; errors: string[] } | null>(null);
+  const [exportResult, setExportResult] = useState<ExportResult | null>(null);
 
   useEffect(() => {
     loadCategories();
@@ -246,6 +247,22 @@ function Invoices() {
     await window.api.updateSupplierInvoice(invoiceId, { category_id: categoryId });
   }
 
+  async function handleExportToExcel() {
+    if (!activeYear) return;
+    setLoading(true);
+    try {
+      const result = await window.api.exportInvoicesToExcel(activeYear.id);
+      setExportResult(result);
+    } catch (error) {
+      setExportResult({
+        success: false,
+        error: error instanceof Error ? error.message : 'Okänt fel vid export',
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -256,6 +273,15 @@ function Invoices() {
         </div>
         <div className="flex items-center gap-4">
           <YearSelector onYearChange={handleYearChange} />
+          <button
+            onClick={handleExportToExcel}
+            disabled={!activeYear || loading}
+            className="btn-secondary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Exportera alla fakturor till Excel"
+          >
+            <DownloadIcon className="w-5 h-5" />
+            Exportera Excel
+          </button>
           <button
             onClick={handleReExtractAmounts}
             disabled={!activeYear || loading}
@@ -325,6 +351,36 @@ function Invoices() {
               <span className="text-dark-400">Total</span>
               <span className="ml-2 text-accent-cyan font-semibold tabular-nums">{formatAmount(supplierTotals.total)} kr</span>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Export Result */}
+      {exportResult && (
+        <div className={`card p-4 animate-fade-in ${exportResult.success ? 'border-accent-green/30 bg-accent-green/10' : 'border-red-500/30 bg-red-500/10'}`}>
+          <div className="flex items-start justify-between">
+            <div>
+              <h3 className={`font-medium flex items-center gap-2 ${exportResult.success ? 'text-accent-green' : 'text-red-400'}`}>
+                {exportResult.success ? <CheckIcon className="w-5 h-5" /> : <XIcon className="w-5 h-5" />}
+                {exportResult.success ? 'Export slutförd' : 'Export misslyckades'}
+              </h3>
+              <div className="text-sm text-dark-300 mt-2">
+                {exportResult.success ? (
+                  <>
+                    <p>Antal rader: <span className="text-white font-medium">{exportResult.rowCount}</span></p>
+                    <p className="text-dark-400 text-xs mt-1 truncate max-w-md">{exportResult.filePath}</p>
+                  </>
+                ) : (
+                  <p className="text-red-400">{exportResult.error}</p>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={() => setExportResult(null)}
+              className="text-dark-400 hover:text-white transition-colors p-1"
+            >
+              <XIcon className="w-5 h-5" />
+            </button>
           </div>
         </div>
       )}
@@ -637,6 +693,14 @@ function InfoIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  );
+}
+
+function DownloadIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
     </svg>
   );
 }

@@ -238,3 +238,10 @@ export interface DashboardStatsEnhanced {
   isCurrentYear: boolean;
   comparisonPeriod: 'full_year' | 'same_month' | null;
 }
+
+export interface ExportResult {
+  success: boolean;
+  filePath?: string;
+  rowCount?: number;
+  error?: string;
+}
