@@ -65,6 +65,13 @@ function Suppliers() {
     const supplier = suppliers.find(s => s.id === supplierId);
     if (!supplier) return;
 
+    // Optimistisk uppdatering - uppdatera state direkt utan att ladda om listan
+    setSuppliers(prev => prev.map(s =>
+      s.id === supplierId
+        ? { ...s, category_id: categoryId }
+        : s
+    ));
+
     await window.api.updateSupplier(supplierId, {
       name: supplier.name,
       org_number: supplier.org_number || undefined,
@@ -75,7 +82,6 @@ function Suppliers() {
       phone: supplier.phone || undefined,
       category_id: categoryId,
     });
-    loadSuppliers();
   }
 
   function handleEdit(supplier: Supplier) {
