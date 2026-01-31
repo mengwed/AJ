@@ -1,28 +1,55 @@
 import { app, BrowserWindow, ipcMain, session } from 'electron';
 import path from 'path';
+import fs from 'fs';
+import os from 'os';
 import { fileURLToPath } from 'url';
 import * as db from './database.js';
-
-// ESM __dirname polyfill
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 import * as fiscalYears from './fiscalYears.js';
 import * as customers from './customers.js';
 import * as suppliers from './suppliers.js';
 import * as invoices from './invoices.js';
 
+// Simple file logger for debugging production issues
+const logFile = path.join(os.homedir(), 'aj-bokforing-debug.log');
+function log(msg: string) {
+  const timestamp = new Date().toISOString();
+  try {
+    fs.appendFileSync(logFile, `${timestamp}: ${msg}\n`);
+  } catch (e) {
+    // Ignore write errors
+  }
+  console.log(msg);
+}
+
+// ESM __dirname polyfill
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Log at module load time
+log('Module loaded, __dirname: ' + __dirname);
+log('isDev: ' + !app.isPackaged + ', isInAppBundle: ' + __dirname.includes('.app/Contents/Resources'));
+log('All imports completed');
+
 let mainWindow: BrowserWindow | null = null;
 
-const isDev = !app.isPackaged;
+// Detektera om vi kör i dev-läge
+// Kolla om vi är i en .app bundle ELLER om dist/index.html finns lokalt
+const isInAppBundle = __dirname.includes('.app/Contents/Resources');
+const isDev = !app.isPackaged && !isInAppBundle;
 
 function createWindow(): void {
+  // I packad app, preload ligger i samma mapp som main.js
+  const preloadPath = path.join(__dirname, 'preload.js');
+  log('Preload path: ' + preloadPath);
+
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 1000,
     minHeight: 700,
+    show: true, // Visa direkt
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: preloadPath,
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -30,12 +57,32 @@ function createWindow(): void {
     trafficLightPosition: { x: 15, y: 15 },
   });
 
+  // Öppna devTools endast i dev-läge
+  if (isDev) {
+    mainWindow.webContents.openDevTools();
+  }
+
   if (isDev) {
     mainWindow.loadURL('http://localhost:5177');
-    mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+    // I packad app, använd app.getAppPath() för korrekt sökväg
+    const appPath = app.getAppPath();
+    const indexPath = path.join(appPath, 'dist', 'index.html');
+    log('App path: ' + appPath);
+    log('Loading index from: ' + indexPath);
+    mainWindow.loadFile(indexPath).catch(err => {
+      log('Failed to load index.html: ' + err.message);
+    });
   }
+
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
+    log('Failed to load: ' + errorCode + ' ' + errorDescription);
+  });
+
+  mainWindow.once('ready-to-show', () => {
+    log('Window ready to show');
+    mainWindow?.show();
+  });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -141,18 +188,53 @@ function setupIpcHandlers(): void {
     invoices.exportInvoicesToExcel(fiscalYearId));
 }
 
-app.whenReady().then(() => {
-  // Ta bort restriktiv CSP för att tillåta emoji-bilder och fonter
-  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    const responseHeaders = { ...details.responseHeaders };
-    // Ta bort eventuell CSP-header som blockerar
-    delete responseHeaders['content-security-policy'];
-    delete responseHeaders['Content-Security-Policy'];
-    callback({ responseHeaders });
-  });
+process.on('uncaughtException', (error) => {
+  log('Uncaught exception: ' + error.message + '\n' + error.stack);
+});
 
-  setupIpcHandlers();
-  createWindow();
+process.on('unhandledRejection', (reason) => {
+  log('Unhandled rejection: ' + reason);
+});
+
+process.on('exit', (code) => {
+  log('Process exit with code: ' + code);
+});
+
+log('Setting up app.whenReady()...');
+log('app.isReady(): ' + app.isReady());
+
+// Timeout to check if app never becomes ready
+setTimeout(() => {
+  log('Timeout check - app.isReady(): ' + app.isReady());
+}, 5000);
+
+app.on('ready', () => {
+  log('app ready event fired');
+});
+
+app.whenReady().then(() => {
+  log('app.whenReady() callback triggered');
+  log('App ready, isDev: ' + isDev);
+  log('__dirname: ' + __dirname);
+  log('app.getAppPath(): ' + app.getAppPath());
+
+  try {
+    // Ta bort restriktiv CSP för att tillåta emoji-bilder och fonter
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+      const responseHeaders = { ...details.responseHeaders };
+      // Ta bort eventuell CSP-header som blockerar
+      delete responseHeaders['content-security-policy'];
+      delete responseHeaders['Content-Security-Policy'];
+      callback({ responseHeaders });
+    });
+
+    setupIpcHandlers();
+    log('IPC handlers setup complete');
+    createWindow();
+    log('Window created');
+  } catch (error) {
+    log('Error during app initialization: ' + (error as Error).message);
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

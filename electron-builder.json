@@ -1,6 +1,6 @@
 {
   "appId": "com.aj.bokforing",
-  "productName": "A.J.",
+  "productName": "AJ Bokföring",
   "directories": {
     "output": "release"
   },
@@ -8,15 +8,20 @@
     "dist/**/*",
     "dist-electron/**/*"
   ],
+  "asar": false,
   "mac": {
     "category": "public.app-category.finance",
     "target": [
       {
         "target": "dmg",
-        "arch": ["universal"]
+        "arch": ["arm64"]
       }
     ],
-    "icon": "build/icon.icns"
+    "icon": "build/icon.icns",
+    "identity": null,
+    "hardenedRuntime": false,
+    "entitlements": "build/entitlements.mac.plist",
+    "entitlementsInherit": "build/entitlements.mac.plist"
   },
   "dmg": {
     "contents": [
