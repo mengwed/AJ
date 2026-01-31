@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, session } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import * as db from './database.js';
@@ -44,29 +44,19 @@ function createWindow(): void {
 
 // IPC Handlers
 function setupIpcHandlers(): void {
-  // Accounts
-  ipcMain.handle('db:getAllAccounts', () => db.getAllAccounts());
-  ipcMain.handle('db:getAccountById', (_, id: number) => db.getAccountById(id));
-  ipcMain.handle('db:createAccount', (_, accountNumber: string, name: string, type: string) =>
-    db.createAccount(accountNumber, name, type));
-  ipcMain.handle('db:updateAccount', (_, id: number, accountNumber: string, name: string, type: string) =>
-    db.updateAccount(id, accountNumber, name, type));
-  ipcMain.handle('db:deleteAccount', (_, id: number) => db.deleteAccount(id));
+  // Categories
+  ipcMain.handle('db:getAllCategories', () => db.getAllCategories());
+  ipcMain.handle('db:getCategoryById', (_, id: number) => db.getCategoryById(id));
+  ipcMain.handle('db:createCategory', (_, data: { name: string; description?: string }) =>
+    db.createCategory(data));
+  ipcMain.handle('db:updateCategory', (_, id: number, data: { name: string; description?: string }) =>
+    db.updateCategory(id, data));
+  ipcMain.handle('db:deleteCategory', (_, id: number) => db.deleteCategory(id));
 
-  // Transactions
-  ipcMain.handle('db:getAllTransactions', () => db.getAllTransactions());
-  ipcMain.handle('db:getTransactionById', (_, id: number) => db.getTransactionById(id));
-  ipcMain.handle('db:createTransaction', (_, date: string, description: string, lines: Array<{ accountId: number; debit: number; credit: number }>) =>
-    db.createTransaction(date, description, lines));
-  ipcMain.handle('db:updateTransaction', (_, id: number, date: string, description: string, lines: Array<{ accountId: number; debit: number; credit: number }>) =>
-    db.updateTransaction(id, date, description, lines));
-  ipcMain.handle('db:deleteTransaction', (_, id: number) => db.deleteTransaction(id));
-
-  // Reports
-  ipcMain.handle('db:getBalanceReport', () => db.getBalanceReport());
-  ipcMain.handle('db:getIncomeStatement', (_, startDate?: string, endDate?: string) =>
-    db.getIncomeStatement(startDate, endDate));
+  // Dashboard
   ipcMain.handle('db:getDashboardStats', () => db.getDashboardStats());
+  ipcMain.handle('db:getDashboardStatsForYear', (_, fiscalYearId: number) =>
+    db.getDashboardStatsForYear(fiscalYearId));
 
   // Fiscal Years
   ipcMain.handle('db:getAllFiscalYears', () => fiscalYears.getAllFiscalYears());
@@ -82,7 +72,8 @@ function setupIpcHandlers(): void {
   ipcMain.handle('db:searchCustomers', (_, query: string) => customers.searchCustomers(query));
   ipcMain.handle('db:createCustomer', (_, data: customers.CustomerInput) => customers.createCustomer(data));
   ipcMain.handle('db:updateCustomer', (_, id: number, data: customers.CustomerInput) => customers.updateCustomer(id, data));
-  ipcMain.handle('db:deleteCustomer', (_, id: number) => customers.deleteCustomer(id));
+  ipcMain.handle('db:deleteCustomer', (_, id: number, force?: boolean) => customers.deleteCustomer(id, force));
+  ipcMain.handle('db:checkCustomerDeletion', (_, id: number) => customers.checkCustomerDeletion(id));
 
   // Suppliers
   ipcMain.handle('db:getAllSuppliers', () => suppliers.getAllSuppliers());
@@ -124,9 +115,38 @@ function setupIpcHandlers(): void {
   ipcMain.handle('db:scanYearFolder', (_, folderPath: string) => invoices.scanYearFolder(folderPath));
   ipcMain.handle('db:importYearFolder', (_, folderPath: string, year: number) =>
     invoices.importYearFolder(folderPath, year));
+  ipcMain.handle('db:downloadIcloudFiles', (_, folderPath: string) =>
+    invoices.downloadIcloudFiles(folderPath));
+
+  // Move invoice between customer/supplier
+  ipcMain.handle('db:moveCustomerInvoiceToSupplier', (_, id: number) =>
+    invoices.moveCustomerInvoiceToSupplier(id));
+  ipcMain.handle('db:moveSupplierInvoiceToCustomer', (_, id: number) =>
+    invoices.moveSupplierInvoiceToCustomer(id));
+
+  // PDF reading and amount extraction
+  ipcMain.handle('db:readPdfAsBase64', (_, filePath: string) =>
+    invoices.readPdfAsBase64(filePath));
+  ipcMain.handle('db:batchReExtractAmounts', (_, fiscalYearId: number) =>
+    invoices.batchReExtractAmounts(fiscalYearId));
+
+  // Invoices by entity
+  ipcMain.handle('db:getInvoicesByCustomerId', (_, customerId: number) =>
+    invoices.getInvoicesByCustomerId(customerId));
+  ipcMain.handle('db:getInvoicesBySupplierId', (_, supplierId: number) =>
+    invoices.getInvoicesBySupplierId(supplierId));
 }
 
 app.whenReady().then(() => {
+  // Ta bort restriktiv CSP för att tillåta emoji-bilder och fonter
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    const responseHeaders = { ...details.responseHeaders };
+    // Ta bort eventuell CSP-header som blockerar
+    delete responseHeaders['content-security-policy'];
+    delete responseHeaders['Content-Security-Policy'];
+    callback({ responseHeaders });
+  });
+
   setupIpcHandlers();
   createWindow();
 

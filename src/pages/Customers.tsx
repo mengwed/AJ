@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Customer, CustomerInput } from '../types';
 import CustomerForm from '../components/CustomerForm';
+import EntityInvoicesModal from '../components/EntityInvoicesModal';
 
 function Customers() {
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -8,6 +9,7 @@ function Customers() {
   const [showForm, setShowForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [viewingInvoices, setViewingInvoices] = useState<Customer | null>(null);
 
   useEffect(() => {
     loadCustomers();
@@ -42,12 +44,33 @@ function Customers() {
   }
 
   async function handleDelete(id: number) {
-    if (confirm('Är du säker på att du vill ta bort denna kund?')) {
-      try {
+    // Kolla först vad som är kopplat till kunden
+    const check = await window.api.checkCustomerDeletion(id);
+
+    if (check.canDelete) {
+      if (confirm('Är du säker på att du vill ta bort denna kund?')) {
         await window.api.deleteCustomer(id);
         loadCustomers();
-      } catch {
-        alert('Kan inte ta bort kund som har fakturor.');
+      }
+    } else {
+      // Bygg detaljerat meddelande
+      const parts: string[] = [];
+      if (check.invoiceCount > 0) {
+        parts.push(`${check.invoiceCount} faktura/or (år: ${check.invoiceYears.join(', ')})`);
+      }
+      if (check.paymentCount > 0) {
+        parts.push(`${check.paymentCount} betalning/ar (år: ${check.paymentYears.join(', ')})`);
+      }
+
+      const message = `Kunden har kopplingar:\n• ${parts.join('\n• ')}\n\nVill du ta bort kunden ändå?\n(Kopplingarna tas bort från fakturorna/betalningarna)`;
+
+      if (confirm(message)) {
+        try {
+          await window.api.deleteCustomer(id, true); // force = true
+          loadCustomers();
+        } catch (error) {
+          alert(`Kunde inte ta bort kunden: ${error instanceof Error ? error.message : 'Okänt fel'}`);
+        }
       }
     }
   }
@@ -162,6 +185,9 @@ function Customers() {
                       <th className="px-6 py-4 text-left text-xs font-medium text-dark-400 uppercase tracking-wider">
                         Ort
                       </th>
+                      <th className="px-6 py-4 text-center text-xs font-medium text-dark-400 uppercase tracking-wider">
+                        Fakturor
+                      </th>
                       <th className="px-6 py-4 text-right text-xs font-medium text-dark-400 uppercase tracking-wider">
                         Åtgärder
                       </th>
@@ -194,6 +220,15 @@ function Customers() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-dark-300">
                           {customer.city || <span className="text-dark-500">—</span>}
                         </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                          <button
+                            onClick={() => setViewingInvoices(customer)}
+                            className="p-2 text-dark-400 hover:text-primary-400 hover:bg-primary-500/10 rounded-lg transition-colors"
+                            title="Visa fakturor"
+                          >
+                            <DocumentIcon className="w-5 h-5" />
+                          </button>
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right">
                           <button
                             onClick={() => handleEdit(customer)}
@@ -216,6 +251,17 @@ function Customers() {
             )}
           </div>
         </>
+      )}
+
+      {/* Modal för att visa fakturor */}
+      {viewingInvoices && (
+        <EntityInvoicesModal
+          isOpen={true}
+          type="customer"
+          entityId={viewingInvoices.id}
+          entityName={viewingInvoices.name}
+          onClose={() => setViewingInvoices(null)}
+        />
       )}
     </div>
   );
@@ -241,6 +287,14 @@ function UsersIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+    </svg>
+  );
+}
+
+function DocumentIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
     </svg>
   );
 }

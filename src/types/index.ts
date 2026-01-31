@@ -1,64 +1,25 @@
-export interface Account {
+// Category types
+export interface Category {
   id: number;
-  account_number: string;
   name: string;
-  type: 'tillgång' | 'skuld' | 'intäkt' | 'kostnad' | 'eget_kapital';
-}
-
-export interface TransactionLine {
-  id?: number;
-  account_id?: number;
-  accountId?: number;
-  account_number?: string;
-  account_name?: string;
-  debit: number;
-  credit: number;
-}
-
-export interface Transaction {
-  id: number;
-  date: string;
-  description: string;
+  description: string | null;
+  emoji: string | null;
   created_at: string;
-  lines: TransactionLine[];
 }
 
+export interface CategoryInput {
+  name: string;
+  description?: string;
+  emoji?: string;
+}
+
+// Dashboard types
 export interface DashboardStats {
   income: number;
   expenses: number;
   result: number;
-  transactionCount: number;
-  recentTransactions: Transaction[];
+  invoiceCount: number;
 }
-
-export interface BalanceReportItem {
-  id: number;
-  account_number: string;
-  name: string;
-  type: string;
-  total_debit: number;
-  total_credit: number;
-  balance: number;
-}
-
-export interface IncomeStatementItem {
-  id: number;
-  account_number: string;
-  name: string;
-  type: string;
-  total_debit: number;
-  total_credit: number;
-}
-
-export type AccountType = 'tillgång' | 'skuld' | 'intäkt' | 'kostnad' | 'eget_kapital';
-
-export const accountTypeLabels: Record<AccountType, string> = {
-  'tillgång': 'Tillgång',
-  'skuld': 'Skuld',
-  'intäkt': 'Intäkt',
-  'kostnad': 'Kostnad',
-  'eget_kapital': 'Eget kapital',
-};
 
 // Fiscal Year types
 export interface FiscalYear {
@@ -91,6 +52,14 @@ export interface CustomerInput {
   phone?: string;
 }
 
+export interface CustomerDeletionCheck {
+  canDelete: boolean;
+  invoiceCount: number;
+  paymentCount: number;
+  invoiceYears: number[];
+  paymentYears: number[];
+}
+
 // Supplier types
 export interface Supplier {
   id: number;
@@ -101,6 +70,8 @@ export interface Supplier {
   city: string | null;
   email: string | null;
   phone: string | null;
+  category_id: number | null;
+  category_name?: string;
   created_at: string;
 }
 
@@ -112,6 +83,7 @@ export interface SupplierInput {
   city?: string;
   email?: string;
   phone?: string;
+  category_id?: number | null;
 }
 
 // Invoice types
@@ -155,14 +127,30 @@ export interface SupplierInvoice {
   parsed_content: string | null;
   status: string;
   payment_date: string | null;
+  category_id: number | null;
+  effective_category_id: number | null;
+  effective_category_name: string | null;
+  effective_category_emoji: string | null;
+  supplier_category_id: number | null;
+  supplier_category_name: string | null;
+  supplier_category_emoji: string | null;
   created_at: string;
   supplier_name?: string;
+}
+
+export interface PossibleDuplicate {
+  fileName: string;
+  newPath: string;
+  existingPath: string;
+  existingType: 'customer' | 'supplier' | 'payment';
 }
 
 export interface ImportResult {
   customerInvoices: number;
   supplierInvoices: number;
+  customerPayments: number;
   skipped: number;
+  possibleDuplicates: PossibleDuplicate[];
   errors: string[];
 }
 
@@ -174,6 +162,7 @@ export interface MonthFolderInfo {
   path: string;
   monthNumber: number | null;
   pdfCount: number;
+  icloudCount: number;
 }
 
 export interface YearFolderPreview {
@@ -182,7 +171,14 @@ export interface YearFolderPreview {
   detectedYear: number | null;
   monthFolders: MonthFolderInfo[];
   rootPdfCount: number;
+  rootIcloudCount: number;
   totalPdfCount: number;
+  totalIcloudCount: number;
+}
+
+export interface IcloudDownloadResult {
+  requested: number;
+  errors: string[];
 }
 
 export interface MonthImportResult {
@@ -190,6 +186,7 @@ export interface MonthImportResult {
   monthNumber: number | null;
   imported: number;
   skipped: number;
+  possibleDuplicates: PossibleDuplicate[];
   errors: string[];
 }
 
@@ -201,5 +198,43 @@ export interface YearImportResult {
   rootResult: MonthImportResult | null;
   totalImported: number;
   totalSkipped: number;
+  totalPossibleDuplicates: PossibleDuplicate[];
   totalErrors: string[];
+}
+
+export interface BatchReExtractResult {
+  customerInvoicesUpdated: number;
+  supplierInvoicesUpdated: number;
+  errors: string[];
+}
+
+export interface PdfReadResult {
+  success: boolean;
+  data?: string;
+  error?: string;
+}
+
+export interface EntityInvoicesResult<T> {
+  invoices: T[];
+  years: number[];
+}
+
+// Enhanced Dashboard types
+export interface DashboardStatsEnhanced {
+  year: number;
+  income: number;
+  expenses: number;
+  vat: number;
+  result: number;
+  invoiceCount: number;
+  comparison: {
+    income: number | null;
+    expenses: number | null;
+    vat: number | null;
+    incomeChangePercent: number | null;
+    expensesChangePercent: number | null;
+    vatChangePercent: number | null;
+  } | null;
+  isCurrentYear: boolean;
+  comparisonPeriod: 'full_year' | 'same_month' | null;
 }

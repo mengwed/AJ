@@ -2,33 +2,16 @@
 
 interface Window {
   api: {
-    // Accounts
-    getAllAccounts: () => Promise<import('./types').Account[]>;
-    getAccountById: (id: number) => Promise<import('./types').Account | null>;
-    createAccount: (accountNumber: string, name: string, type: string) => Promise<import('./types').Account>;
-    updateAccount: (id: number, accountNumber: string, name: string, type: string) => Promise<import('./types').Account>;
-    deleteAccount: (id: number) => Promise<{ success: boolean }>;
+    // Categories
+    getAllCategories: () => Promise<import('./types').Category[]>;
+    getCategoryById: (id: number) => Promise<import('./types').Category | undefined>;
+    createCategory: (data: import('./types').CategoryInput) => Promise<import('./types').Category>;
+    updateCategory: (id: number, data: import('./types').CategoryInput) => Promise<import('./types').Category>;
+    deleteCategory: (id: number) => Promise<{ success: boolean }>;
 
-    // Transactions
-    getAllTransactions: () => Promise<import('./types').Transaction[]>;
-    getTransactionById: (id: number) => Promise<import('./types').Transaction | null>;
-    createTransaction: (
-      date: string,
-      description: string,
-      lines: Array<{ accountId: number; debit: number; credit: number }>
-    ) => Promise<import('./types').Transaction>;
-    updateTransaction: (
-      id: number,
-      date: string,
-      description: string,
-      lines: Array<{ accountId: number; debit: number; credit: number }>
-    ) => Promise<import('./types').Transaction>;
-    deleteTransaction: (id: number) => Promise<{ success: boolean }>;
-
-    // Reports
-    getBalanceReport: () => Promise<import('./types').BalanceReportItem[]>;
-    getIncomeStatement: (startDate?: string, endDate?: string) => Promise<import('./types').IncomeStatementItem[]>;
+    // Dashboard
     getDashboardStats: () => Promise<import('./types').DashboardStats>;
+    getDashboardStatsForYear: (fiscalYearId: number) => Promise<import('./types').DashboardStatsEnhanced>;
 
     // Fiscal Years
     getAllFiscalYears: () => Promise<import('./types').FiscalYear[]>;
@@ -44,7 +27,8 @@ interface Window {
     searchCustomers: (query: string) => Promise<import('./types').Customer[]>;
     createCustomer: (data: import('./types').CustomerInput) => Promise<import('./types').Customer>;
     updateCustomer: (id: number, data: import('./types').CustomerInput) => Promise<import('./types').Customer>;
-    deleteCustomer: (id: number) => Promise<{ success: boolean }>;
+    deleteCustomer: (id: number, force?: boolean) => Promise<{ success: boolean }>;
+    checkCustomerDeletion: (id: number) => Promise<import('./types').CustomerDeletionCheck>;
 
     // Suppliers
     getAllSuppliers: () => Promise<import('./types').Supplier[]>;
@@ -81,5 +65,18 @@ interface Window {
     selectYearFolder: () => Promise<string | null>;
     scanYearFolder: (folderPath: string) => Promise<import('./types').YearFolderPreview>;
     importYearFolder: (folderPath: string, year: number) => Promise<import('./types').YearImportResult>;
+    downloadIcloudFiles: (folderPath: string) => Promise<import('./types').IcloudDownloadResult>;
+
+    // Move invoice between customer/supplier
+    moveCustomerInvoiceToSupplier: (id: number) => Promise<import('./types').SupplierInvoice>;
+    moveSupplierInvoiceToCustomer: (id: number) => Promise<import('./types').CustomerInvoice>;
+
+    // PDF reading and amount extraction
+    readPdfAsBase64: (filePath: string) => Promise<import('./types').PdfReadResult>;
+    batchReExtractAmounts: (fiscalYearId: number) => Promise<import('./types').BatchReExtractResult>;
+
+    // Invoices by entity
+    getInvoicesByCustomerId: (customerId: number) => Promise<{ invoices: import('./types').CustomerInvoice[]; years: number[] }>;
+    getInvoicesBySupplierId: (supplierId: number) => Promise<{ invoices: import('./types').SupplierInvoice[]; years: number[] }>;
   };
 }

@@ -1,55 +1,43 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-export interface Account {
+export interface Category {
   id: number;
-  account_number: string;
   name: string;
-  type: 'tillgång' | 'skuld' | 'intäkt' | 'kostnad' | 'eget_kapital';
-}
-
-export interface TransactionLine {
-  id?: number;
-  account_id?: number;
-  accountId?: number;
-  account_number?: string;
-  account_name?: string;
-  debit: number;
-  credit: number;
-}
-
-export interface Transaction {
-  id: number;
-  date: string;
-  description: string;
+  description: string | null;
+  emoji: string | null;
   created_at: string;
-  lines: TransactionLine[];
+}
+
+export interface CategoryInput {
+  name: string;
+  description?: string;
+  emoji?: string;
 }
 
 export interface DashboardStats {
   income: number;
   expenses: number;
   result: number;
-  transactionCount: number;
-  recentTransactions: Transaction[];
+  invoiceCount: number;
 }
 
-export interface BalanceReportItem {
-  id: number;
-  account_number: string;
-  name: string;
-  type: string;
-  total_debit: number;
-  total_credit: number;
-  balance: number;
-}
-
-export interface IncomeStatementItem {
-  id: number;
-  account_number: string;
-  name: string;
-  type: string;
-  total_debit: number;
-  total_credit: number;
+export interface DashboardStatsEnhanced {
+  year: number;
+  income: number;
+  expenses: number;
+  vat: number;
+  result: number;
+  invoiceCount: number;
+  comparison: {
+    income: number | null;
+    expenses: number | null;
+    vat: number | null;
+    incomeChangePercent: number | null;
+    expensesChangePercent: number | null;
+    vatChangePercent: number | null;
+  } | null;
+  isCurrentYear: boolean;
+  comparisonPeriod: 'full_year' | 'same_month' | null;
 }
 
 export interface FiscalYear {
@@ -81,6 +69,14 @@ export interface CustomerInput {
   phone?: string;
 }
 
+export interface CustomerDeletionCheck {
+  canDelete: boolean;
+  invoiceCount: number;
+  paymentCount: number;
+  invoiceYears: number[];
+  paymentYears: number[];
+}
+
 export interface Supplier {
   id: number;
   name: string;
@@ -90,6 +86,8 @@ export interface Supplier {
   city: string | null;
   email: string | null;
   phone: string | null;
+  category_id: number | null;
+  category_name?: string;
   created_at: string;
 }
 
@@ -101,6 +99,7 @@ export interface SupplierInput {
   city?: string;
   email?: string;
   phone?: string;
+  category_id?: number | null;
 }
 
 export interface InvoiceFolder {
@@ -143,6 +142,13 @@ export interface SupplierInvoice {
   parsed_content: string | null;
   status: string;
   payment_date: string | null;
+  category_id: number | null;
+  effective_category_id: number | null;
+  effective_category_name: string | null;
+  effective_category_emoji: string | null;
+  supplier_category_id: number | null;
+  supplier_category_name: string | null;
+  supplier_category_emoji: string | null;
   created_at: string;
   supplier_name?: string;
 }
@@ -160,6 +166,7 @@ export interface MonthFolderInfo {
   path: string;
   monthNumber: number | null;
   pdfCount: number;
+  icloudCount: number;
 }
 
 export interface YearFolderPreview {
@@ -168,7 +175,14 @@ export interface YearFolderPreview {
   detectedYear: number | null;
   monthFolders: MonthFolderInfo[];
   rootPdfCount: number;
+  rootIcloudCount: number;
   totalPdfCount: number;
+  totalIcloudCount: number;
+}
+
+export interface IcloudDownloadResult {
+  requested: number;
+  errors: string[];
 }
 
 export interface MonthImportResult {
@@ -190,42 +204,34 @@ export interface YearImportResult {
   totalErrors: string[];
 }
 
+export interface BatchReExtractResult {
+  customerInvoicesUpdated: number;
+  supplierInvoicesUpdated: number;
+  errors: string[];
+}
+
+export interface PdfReadResult {
+  success: boolean;
+  data?: string;
+  error?: string;
+}
+
 const api = {
-  // Accounts
-  getAllAccounts: (): Promise<Account[]> => ipcRenderer.invoke('db:getAllAccounts'),
-  getAccountById: (id: number): Promise<Account | null> => ipcRenderer.invoke('db:getAccountById', id),
-  createAccount: (accountNumber: string, name: string, type: string): Promise<Account> =>
-    ipcRenderer.invoke('db:createAccount', accountNumber, name, type),
-  updateAccount: (id: number, accountNumber: string, name: string, type: string): Promise<Account> =>
-    ipcRenderer.invoke('db:updateAccount', id, accountNumber, name, type),
-  deleteAccount: (id: number): Promise<{ success: boolean }> =>
-    ipcRenderer.invoke('db:deleteAccount', id),
+  // Categories
+  getAllCategories: (): Promise<Category[]> => ipcRenderer.invoke('db:getAllCategories'),
+  getCategoryById: (id: number): Promise<Category | undefined> =>
+    ipcRenderer.invoke('db:getCategoryById', id),
+  createCategory: (data: CategoryInput): Promise<Category> =>
+    ipcRenderer.invoke('db:createCategory', data),
+  updateCategory: (id: number, data: CategoryInput): Promise<Category> =>
+    ipcRenderer.invoke('db:updateCategory', id, data),
+  deleteCategory: (id: number): Promise<{ success: boolean }> =>
+    ipcRenderer.invoke('db:deleteCategory', id),
 
-  // Transactions
-  getAllTransactions: (): Promise<Transaction[]> => ipcRenderer.invoke('db:getAllTransactions'),
-  getTransactionById: (id: number): Promise<Transaction | null> =>
-    ipcRenderer.invoke('db:getTransactionById', id),
-  createTransaction: (
-    date: string,
-    description: string,
-    lines: Array<{ accountId: number; debit: number; credit: number }>
-  ): Promise<Transaction> =>
-    ipcRenderer.invoke('db:createTransaction', date, description, lines),
-  updateTransaction: (
-    id: number,
-    date: string,
-    description: string,
-    lines: Array<{ accountId: number; debit: number; credit: number }>
-  ): Promise<Transaction> =>
-    ipcRenderer.invoke('db:updateTransaction', id, date, description, lines),
-  deleteTransaction: (id: number): Promise<{ success: boolean }> =>
-    ipcRenderer.invoke('db:deleteTransaction', id),
-
-  // Reports
-  getBalanceReport: (): Promise<BalanceReportItem[]> => ipcRenderer.invoke('db:getBalanceReport'),
-  getIncomeStatement: (startDate?: string, endDate?: string): Promise<IncomeStatementItem[]> =>
-    ipcRenderer.invoke('db:getIncomeStatement', startDate, endDate),
+  // Dashboard
   getDashboardStats: (): Promise<DashboardStats> => ipcRenderer.invoke('db:getDashboardStats'),
+  getDashboardStatsForYear: (fiscalYearId: number): Promise<DashboardStatsEnhanced> =>
+    ipcRenderer.invoke('db:getDashboardStatsForYear', fiscalYearId),
 
   // Fiscal Years
   getAllFiscalYears: (): Promise<FiscalYear[]> => ipcRenderer.invoke('db:getAllFiscalYears'),
@@ -250,8 +256,10 @@ const api = {
     ipcRenderer.invoke('db:createCustomer', data),
   updateCustomer: (id: number, data: CustomerInput): Promise<Customer> =>
     ipcRenderer.invoke('db:updateCustomer', id, data),
-  deleteCustomer: (id: number): Promise<{ success: boolean }> =>
-    ipcRenderer.invoke('db:deleteCustomer', id),
+  deleteCustomer: (id: number, force?: boolean): Promise<{ success: boolean }> =>
+    ipcRenderer.invoke('db:deleteCustomer', id, force),
+  checkCustomerDeletion: (id: number): Promise<CustomerDeletionCheck> =>
+    ipcRenderer.invoke('db:checkCustomerDeletion', id),
 
   // Suppliers
   getAllSuppliers: (): Promise<Supplier[]> => ipcRenderer.invoke('db:getAllSuppliers'),
@@ -311,6 +319,26 @@ const api = {
     ipcRenderer.invoke('db:scanYearFolder', folderPath),
   importYearFolder: (folderPath: string, year: number): Promise<YearImportResult> =>
     ipcRenderer.invoke('db:importYearFolder', folderPath, year),
+  downloadIcloudFiles: (folderPath: string): Promise<IcloudDownloadResult> =>
+    ipcRenderer.invoke('db:downloadIcloudFiles', folderPath),
+
+  // Move invoice between customer/supplier
+  moveCustomerInvoiceToSupplier: (id: number): Promise<SupplierInvoice> =>
+    ipcRenderer.invoke('db:moveCustomerInvoiceToSupplier', id),
+  moveSupplierInvoiceToCustomer: (id: number): Promise<CustomerInvoice> =>
+    ipcRenderer.invoke('db:moveSupplierInvoiceToCustomer', id),
+
+  // PDF reading and amount extraction
+  readPdfAsBase64: (filePath: string): Promise<PdfReadResult> =>
+    ipcRenderer.invoke('db:readPdfAsBase64', filePath),
+  batchReExtractAmounts: (fiscalYearId: number): Promise<BatchReExtractResult> =>
+    ipcRenderer.invoke('db:batchReExtractAmounts', fiscalYearId),
+
+  // Invoices by entity
+  getInvoicesByCustomerId: (customerId: number): Promise<{ invoices: CustomerInvoice[]; years: number[] }> =>
+    ipcRenderer.invoke('db:getInvoicesByCustomerId', customerId),
+  getInvoicesBySupplierId: (supplierId: number): Promise<{ invoices: SupplierInvoice[]; years: number[] }> =>
+    ipcRenderer.invoke('db:getInvoicesBySupplierId', supplierId),
 };
 
 contextBridge.exposeInMainWorld('api', api);

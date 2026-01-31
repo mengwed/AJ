@@ -1,17 +1,26 @@
 import { useState, useEffect } from 'react';
-import { Supplier, SupplierInput } from '../types';
+import { Supplier, SupplierInput, Category } from '../types';
 import SupplierForm from '../components/SupplierForm';
+import EntityInvoicesModal from '../components/EntityInvoicesModal';
 
 function Suppliers() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [viewingInvoices, setViewingInvoices] = useState<Supplier | null>(null);
 
   useEffect(() => {
     loadSuppliers();
+    loadCategories();
   }, []);
+
+  async function loadCategories() {
+    const data = await window.api.getAllCategories();
+    setCategories(data);
+  }
 
   async function loadSuppliers() {
     setLoading(true);
@@ -50,6 +59,23 @@ function Suppliers() {
         alert('Kan inte ta bort leverantör som har fakturor.');
       }
     }
+  }
+
+  async function handleCategoryChange(supplierId: number, categoryId: number | null) {
+    const supplier = suppliers.find(s => s.id === supplierId);
+    if (!supplier) return;
+
+    await window.api.updateSupplier(supplierId, {
+      name: supplier.name,
+      org_number: supplier.org_number || undefined,
+      address: supplier.address || undefined,
+      postal_code: supplier.postal_code || undefined,
+      city: supplier.city || undefined,
+      email: supplier.email || undefined,
+      phone: supplier.phone || undefined,
+      category_id: categoryId,
+    });
+    loadSuppliers();
   }
 
   function handleEdit(supplier: Supplier) {
@@ -151,16 +177,10 @@ function Suppliers() {
                         Företag
                       </th>
                       <th className="px-6 py-4 text-left text-xs font-medium text-dark-400 uppercase tracking-wider">
-                        Org.nr
+                        Kategori
                       </th>
-                      <th className="px-6 py-4 text-left text-xs font-medium text-dark-400 uppercase tracking-wider">
-                        E-post
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-medium text-dark-400 uppercase tracking-wider">
-                        Telefon
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-medium text-dark-400 uppercase tracking-wider">
-                        Ort
+                      <th className="px-6 py-4 text-center text-xs font-medium text-dark-400 uppercase tracking-wider">
+                        Fakturor
                       </th>
                       <th className="px-6 py-4 text-right text-xs font-medium text-dark-400 uppercase tracking-wider">
                         Åtgärder
@@ -182,17 +202,26 @@ function Suppliers() {
                             <span className="font-medium text-white">{supplier.name}</span>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-dark-300">
-                          {supplier.org_number || <span className="text-dark-500">—</span>}
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <select
+                              value={supplier.category_id || ''}
+                              onChange={(e) => handleCategoryChange(supplier.id, e.target.value ? parseInt(e.target.value) : null)}
+                              className="bg-dark-700 border border-dark-600 text-sm text-dark-200 rounded-lg px-3 py-1.5 focus:ring-primary-500 focus:border-primary-500 cursor-pointer"
+                            >
+                              <option value="">Välj kategori...</option>
+                              {categories.map(cat => (
+                                <option key={cat.id} value={cat.id}>{cat.emoji ? `${cat.emoji} ` : ''}{cat.name}</option>
+                              ))}
+                            </select>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-dark-300">
-                          {supplier.email || <span className="text-dark-500">—</span>}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-dark-300">
-                          {supplier.phone || <span className="text-dark-500">—</span>}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-dark-300">
-                          {supplier.city || <span className="text-dark-500">—</span>}
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                          <button
+                            onClick={() => setViewingInvoices(supplier)}
+                            className="p-2 text-dark-400 hover:text-primary-400 hover:bg-primary-500/10 rounded-lg transition-colors"
+                            title="Visa fakturor"
+                          >
+                            <DocumentIcon className="w-5 h-5" />
+                          </button>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right">
                           <button
@@ -216,6 +245,17 @@ function Suppliers() {
             )}
           </div>
         </>
+      )}
+
+      {/* Modal för att visa fakturor */}
+      {viewingInvoices && (
+        <EntityInvoicesModal
+          isOpen={true}
+          type="supplier"
+          entityId={viewingInvoices.id}
+          entityName={viewingInvoices.name}
+          onClose={() => setViewingInvoices(null)}
+        />
       )}
     </div>
   );
@@ -241,6 +281,14 @@ function TruckIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h1m6-11v11m0-11h4l4 4v7a2 2 0 01-2 2h-1m-6-11h4m-2 11a2 2 0 11-4 0m6 0a2 2 0 11-4 0" />
+    </svg>
+  );
+}
+
+function DocumentIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
     </svg>
   );
 }

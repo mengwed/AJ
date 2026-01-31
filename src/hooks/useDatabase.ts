@@ -1,23 +1,22 @@
 import { useState, useCallback } from 'react';
 import type {
-  Account,
-  Transaction,
   DashboardStats,
-  BalanceReportItem,
-  IncomeStatementItem,
+  DashboardStatsEnhanced,
+  Category,
+  CategoryInput,
 } from '../types';
 
-export function useAccounts() {
-  const [accounts, setAccounts] = useState<Account[]>([]);
+export function useCategories() {
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchAccounts = useCallback(async () => {
+  const fetchCategories = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await window.api.getAllAccounts();
-      setAccounts(data);
+      const data = await window.api.getAllCategories();
+      setCategories(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ett fel uppstod');
     } finally {
@@ -25,112 +24,44 @@ export function useAccounts() {
     }
   }, []);
 
-  const createAccount = useCallback(async (accountNumber: string, name: string, type: string) => {
+  const createCategory = useCallback(async (data: CategoryInput) => {
     try {
-      await window.api.createAccount(accountNumber, name, type);
-      await fetchAccounts();
+      await window.api.createCategory(data);
+      await fetchCategories();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ett fel uppstod');
       throw err;
     }
-  }, [fetchAccounts]);
+  }, [fetchCategories]);
 
-  const updateAccount = useCallback(async (id: number, accountNumber: string, name: string, type: string) => {
+  const updateCategory = useCallback(async (id: number, data: CategoryInput) => {
     try {
-      await window.api.updateAccount(id, accountNumber, name, type);
-      await fetchAccounts();
+      await window.api.updateCategory(id, data);
+      await fetchCategories();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ett fel uppstod');
       throw err;
     }
-  }, [fetchAccounts]);
+  }, [fetchCategories]);
 
-  const deleteAccount = useCallback(async (id: number) => {
+  const deleteCategory = useCallback(async (id: number) => {
     try {
-      await window.api.deleteAccount(id);
-      await fetchAccounts();
+      await window.api.deleteCategory(id);
+      await fetchCategories();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ett fel uppstod');
       throw err;
     }
-  }, [fetchAccounts]);
+  }, [fetchCategories]);
 
   return {
-    accounts,
+    categories,
     loading,
     error,
-    fetchAccounts,
-    createAccount,
-    updateAccount,
-    deleteAccount,
-  };
-}
-
-export function useTransactions() {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchTransactions = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await window.api.getAllTransactions();
-      setTransactions(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ett fel uppstod');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const createTransaction = useCallback(async (
-    date: string,
-    description: string,
-    lines: Array<{ accountId: number; debit: number; credit: number }>
-  ) => {
-    try {
-      await window.api.createTransaction(date, description, lines);
-      await fetchTransactions();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ett fel uppstod');
-      throw err;
-    }
-  }, [fetchTransactions]);
-
-  const updateTransaction = useCallback(async (
-    id: number,
-    date: string,
-    description: string,
-    lines: Array<{ accountId: number; debit: number; credit: number }>
-  ) => {
-    try {
-      await window.api.updateTransaction(id, date, description, lines);
-      await fetchTransactions();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ett fel uppstod');
-      throw err;
-    }
-  }, [fetchTransactions]);
-
-  const deleteTransaction = useCallback(async (id: number) => {
-    try {
-      await window.api.deleteTransaction(id);
-      await fetchTransactions();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ett fel uppstod');
-      throw err;
-    }
-  }, [fetchTransactions]);
-
-  return {
-    transactions,
-    loading,
-    error,
-    fetchTransactions,
-    createTransaction,
-    updateTransaction,
-    deleteTransaction,
+    fetchCategories,
+    createCategory,
+    updateCategory,
+    deleteCategory,
   };
 }
 
@@ -155,18 +86,17 @@ export function useDashboard() {
   return { stats, loading, error, fetchStats };
 }
 
-export function useReports() {
-  const [balanceReport, setBalanceReport] = useState<BalanceReportItem[]>([]);
-  const [incomeStatement, setIncomeStatement] = useState<IncomeStatementItem[]>([]);
+export function useDashboardForYear() {
+  const [stats, setStats] = useState<DashboardStatsEnhanced | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchBalanceReport = useCallback(async () => {
+  const fetchStats = useCallback(async (fiscalYearId: number) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await window.api.getBalanceReport();
-      setBalanceReport(data);
+      const data = await window.api.getDashboardStatsForYear(fiscalYearId);
+      setStats(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ett fel uppstod');
     } finally {
@@ -174,25 +104,5 @@ export function useReports() {
     }
   }, []);
 
-  const fetchIncomeStatement = useCallback(async (startDate?: string, endDate?: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await window.api.getIncomeStatement(startDate, endDate);
-      setIncomeStatement(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ett fel uppstod');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  return {
-    balanceReport,
-    incomeStatement,
-    loading,
-    error,
-    fetchBalanceReport,
-    fetchIncomeStatement,
-  };
+  return { stats, loading, error, fetchStats };
 }

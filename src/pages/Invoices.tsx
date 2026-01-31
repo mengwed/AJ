@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
-import { FiscalYear, CustomerInvoice, SupplierInvoice, ImportResult } from '../types';
+import { useState, useEffect, useMemo } from 'react';
+import { FiscalYear, CustomerInvoice, SupplierInvoice, ImportResult, Category } from '../types';
 import YearSelector from '../components/YearSelector';
-import FolderSelector from '../components/FolderSelector';
 import InvoiceList from '../components/InvoiceList';
 import YearImportModal from '../components/YearImportModal';
+import PDFViewerModal from '../components/PDFViewerModal';
 
 type TabType = 'customer' | 'supplier';
 
@@ -12,15 +12,31 @@ function Invoices() {
   const [activeTab, setActiveTab] = useState<TabType>('customer');
   const [customerInvoices, setCustomerInvoices] = useState<CustomerInvoice[]>([]);
   const [supplierInvoices, setSupplierInvoices] = useState<SupplierInvoice[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [showYearImportModal, setShowYearImportModal] = useState(false);
+  const [showUnmappedOnly, setShowUnmappedOnly] = useState(false);
+  const [showMissingAmountOnly, setShowMissingAmountOnly] = useState(false);
+  const [viewingPdf, setViewingPdf] = useState<{ filePath: string; fileName: string } | null>(null);
+  const [editingCustomerInvoiceId, setEditingCustomerInvoiceId] = useState<number | null>(null);
+  const [editingSupplierInvoiceId, setEditingSupplierInvoiceId] = useState<number | null>(null);
+  const [reExtractResult, setReExtractResult] = useState<{ customerInvoicesUpdated: number; supplierInvoicesUpdated: number; errors: string[] } | null>(null);
+
+  useEffect(() => {
+    loadCategories();
+  }, []);
 
   useEffect(() => {
     if (activeYear) {
       loadInvoices();
     }
   }, [activeYear]);
+
+  async function loadCategories() {
+    const data = await window.api.getAllCategories();
+    setCategories(data);
+  }
 
   async function loadInvoices() {
     if (!activeYear) return;
@@ -37,21 +53,6 @@ function Invoices() {
 
   function handleYearChange(year: FiscalYear) {
     setActiveYear(year);
-  }
-
-  async function handleFolderImport(folderId: number) {
-    if (!activeYear) return;
-
-    setLoading(true);
-    try {
-      const result = await window.api.scanAndImportFolder(folderId, activeYear.id);
-      setImportResult(result);
-      loadInvoices();
-    } catch (error) {
-      console.error('Import failed:', error);
-    } finally {
-      setLoading(false);
-    }
   }
 
   async function handleSelectAndImport() {
@@ -75,6 +76,10 @@ function Invoices() {
     await window.api.openInvoiceFile(filePath);
   }
 
+  function handleViewFile(filePath: string, fileName: string) {
+    setViewingPdf({ filePath, fileName });
+  }
+
   async function handleDeleteCustomerInvoice(id: number) {
     if (confirm('Är du säker på att du vill ta bort denna faktura?')) {
       await window.api.deleteCustomerInvoice(id);
@@ -93,6 +98,154 @@ function Invoices() {
     setImportResult(null);
   }
 
+  async function handleUpdateCustomerMapping(invoiceId: number, customerId: number | null) {
+    await window.api.updateCustomerInvoice(invoiceId, { customer_id: customerId });
+    loadInvoices();
+  }
+
+  async function handleUpdateSupplierMapping(invoiceId: number, supplierId: number | null) {
+    await window.api.updateSupplierInvoice(invoiceId, { supplier_id: supplierId });
+    loadInvoices();
+  }
+
+  async function handleRecategorizeToSupplier(invoiceId: number) {
+    if (confirm('Flytta till leverantörsfakturor?')) {
+      await window.api.moveCustomerInvoiceToSupplier(invoiceId);
+      loadInvoices();
+    }
+  }
+
+  async function handleRecategorizeToCustomer(invoiceId: number) {
+    if (confirm('Flytta till kundfakturor?')) {
+      await window.api.moveSupplierInvoiceToCustomer(invoiceId);
+      loadInvoices();
+    }
+  }
+
+  // Filter invoices based on active filters
+  // Always keep the currently-editing invoice visible (pinned)
+  const filteredCustomerInvoices = customerInvoices.filter(inv => {
+    // Always show the invoice being edited
+    if (inv.id === editingCustomerInvoiceId) return true;
+    if (showUnmappedOnly && inv.customer_id !== null) return false;
+    if (showMissingAmountOnly && inv.amount !== null) return false;
+    return true;
+  });
+
+  const filteredSupplierInvoices = supplierInvoices.filter(inv => {
+    // Always show the invoice being edited
+    if (inv.id === editingSupplierInvoiceId) return true;
+    if (showUnmappedOnly && inv.supplier_id !== null) return false;
+    if (showMissingAmountOnly && inv.amount !== null) return false;
+    return true;
+  });
+
+  // Calculate totals for customer invoices
+  // Beräkna moms som total - belopp istället för att använda vat-fältet (som kan vara korrupt)
+  const customerTotals = useMemo(() => {
+    return customerInvoices.reduce(
+      (acc, inv) => {
+        const amount = inv.amount || 0;
+        const total = inv.total || 0;
+        const vat = total - amount;
+        return {
+          amount: acc.amount + amount,
+          vat: acc.vat + vat,
+          total: acc.total + total,
+        };
+      },
+      { amount: 0, vat: 0, total: 0 }
+    );
+  }, [customerInvoices]);
+
+  // Calculate totals for supplier invoices
+  const supplierTotals = useMemo(() => {
+    return supplierInvoices.reduce(
+      (acc, inv) => {
+        const amount = inv.amount || 0;
+        const total = inv.total || 0;
+        const vat = total - amount;
+        return {
+          amount: acc.amount + amount,
+          vat: acc.vat + vat,
+          total: acc.total + total,
+        };
+      },
+      { amount: 0, vat: 0, total: 0 }
+    );
+  }, [supplierInvoices]);
+
+  function formatAmount(value: number): string {
+    return value.toLocaleString('sv-SE', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  }
+
+  async function handleUpdateCustomerAmounts(invoiceId: number, updates: { amount?: number | null; vat?: number | null; total?: number | null }) {
+    // Update local state optimistically for smooth Tab navigation
+    setCustomerInvoices(prev => prev.map(inv =>
+      inv.id === invoiceId ? { ...inv, ...updates } : inv
+    ));
+    // Save to database in background
+    await window.api.updateCustomerInvoice(invoiceId, updates);
+  }
+
+  async function handleUpdateSupplierAmounts(invoiceId: number, updates: { amount?: number | null; vat?: number | null; total?: number | null }) {
+    // Update local state optimistically for smooth Tab navigation
+    setSupplierInvoices(prev => prev.map(inv =>
+      inv.id === invoiceId ? { ...inv, ...updates } : inv
+    ));
+    // Save to database in background
+    await window.api.updateSupplierInvoice(invoiceId, updates);
+  }
+
+  async function handleReExtractAmounts() {
+    if (!activeYear) return;
+    setLoading(true);
+    try {
+      const result = await window.api.batchReExtractAmounts(activeYear.id);
+      setReExtractResult(result);
+      loadInvoices();
+    } catch (error) {
+      console.error('Re-extraction failed:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleUpdateSupplierCategory(invoiceId: number, categoryId: number | null) {
+    // Find the invoice to get supplier's category for effective display
+    const invoice = supplierInvoices.find(inv => inv.id === invoiceId);
+    if (!invoice) return;
+
+    // Find category for optimistic update
+    const category = categoryId ? categories.find(c => c.id === categoryId) : null;
+
+    // Update local state optimistically
+    setSupplierInvoices(prev => prev.map(inv => {
+      if (inv.id === invoiceId) {
+        // If setting a specific category, use that; if clearing, fall back to supplier's category
+        const effectiveCategoryId = categoryId !== null ? categoryId : inv.supplier_category_id || null;
+        const effectiveCategoryName = categoryId !== null
+          ? (category?.name || null)
+          : inv.supplier_category_name || null;
+        const effectiveCategoryEmoji = categoryId !== null
+          ? (category?.emoji || null)
+          : inv.supplier_category_emoji || null;
+
+        return {
+          ...inv,
+          category_id: categoryId,
+          effective_category_id: effectiveCategoryId,
+          effective_category_name: effectiveCategoryName,
+          effective_category_emoji: effectiveCategoryEmoji,
+        };
+      }
+      return inv;
+    }));
+
+    // Save to database in background
+    await window.api.updateSupplierInvoice(invoiceId, { category_id: categoryId });
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -103,6 +256,15 @@ function Invoices() {
         </div>
         <div className="flex items-center gap-4">
           <YearSelector onYearChange={handleYearChange} />
+          <button
+            onClick={handleReExtractAmounts}
+            disabled={!activeYear || loading}
+            className="btn-secondary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Kör om beloppsextraktion på alla fakturor"
+          >
+            <RefreshIcon className="w-5 h-5" />
+            Kör om belopp
+          </button>
           <button
             onClick={() => setShowYearImportModal(true)}
             disabled={loading}
@@ -121,6 +283,85 @@ function Invoices() {
           </button>
         </div>
       </div>
+
+      {/* Invoice Totals Summary */}
+      {activeYear && (
+        <div className="card px-4 py-3 space-y-2">
+          {/* Customer Invoices Summary */}
+          <div className="flex items-center text-sm whitespace-nowrap">
+            <div className="flex items-center gap-2 w-[180px]">
+              <UserIcon className="w-4 h-4 text-primary-400" />
+              <span className="font-medium text-primary-400">Kundfakturor</span>
+            </div>
+            <div className="w-[200px]">
+              <span className="text-dark-400">Belopp</span>
+              <span className="ml-2 text-white font-medium tabular-nums">{formatAmount(customerTotals.amount)} kr</span>
+            </div>
+            <div className="w-[200px]">
+              <span className="text-dark-400">Moms</span>
+              <span className="ml-2 text-white font-medium tabular-nums">{formatAmount(customerTotals.vat)} kr</span>
+            </div>
+            <div>
+              <span className="text-dark-400">Total</span>
+              <span className="ml-2 text-primary-400 font-semibold tabular-nums">{formatAmount(customerTotals.total)} kr</span>
+            </div>
+          </div>
+
+          {/* Supplier Invoices Summary */}
+          <div className="flex items-center text-sm whitespace-nowrap">
+            <div className="flex items-center gap-2 w-[180px]">
+              <TruckIcon className="w-4 h-4 text-accent-cyan" />
+              <span className="font-medium text-accent-cyan">Leverantörsfakturor</span>
+            </div>
+            <div className="w-[200px]">
+              <span className="text-dark-400">Belopp</span>
+              <span className="ml-2 text-white font-medium tabular-nums">{formatAmount(supplierTotals.amount)} kr</span>
+            </div>
+            <div className="w-[200px]">
+              <span className="text-dark-400">Moms</span>
+              <span className="ml-2 text-white font-medium tabular-nums">{formatAmount(supplierTotals.vat)} kr</span>
+            </div>
+            <div>
+              <span className="text-dark-400">Total</span>
+              <span className="ml-2 text-accent-cyan font-semibold tabular-nums">{formatAmount(supplierTotals.total)} kr</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Re-Extract Result */}
+      {reExtractResult && (
+        <div className="card p-4 border-accent-cyan/30 bg-accent-cyan/10 animate-fade-in">
+          <div className="flex items-start justify-between">
+            <div>
+              <h3 className="font-medium text-accent-cyan flex items-center gap-2">
+                <CheckIcon className="w-5 h-5" />
+                Beloppsextraktion slutförd
+              </h3>
+              <div className="text-sm text-dark-300 mt-2 space-y-1">
+                <p>Kundfakturor uppdaterade: <span className="text-white font-medium">{reExtractResult.customerInvoicesUpdated}</span></p>
+                <p>Leverantörsfakturor uppdaterade: <span className="text-white font-medium">{reExtractResult.supplierInvoicesUpdated}</span></p>
+                {reExtractResult.errors.length > 0 && (
+                  <div className="mt-2 p-2 rounded-lg bg-red-500/10 border border-red-500/30">
+                    <p className="text-red-400 font-medium mb-1">Fel:</p>
+                    <ul className="list-disc list-inside text-red-400/80 text-xs">
+                      {reExtractResult.errors.map((err, i) => (
+                        <li key={i}>{err}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={() => setReExtractResult(null)}
+              className="text-dark-400 hover:text-white transition-colors p-1"
+            >
+              <XIcon className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Import Result */}
       {importResult && (
@@ -159,14 +400,11 @@ function Invoices() {
         </div>
       )}
 
-      {/* Folder Selector */}
-      <FolderSelector onImport={handleFolderImport} />
-
       {/* Invoice Tabs & List */}
       <div className="card overflow-hidden">
         {/* Tab Navigation */}
         <div className="border-b border-dark-700/50">
-          <nav className="flex">
+          <nav className="flex items-center">
             <button
               onClick={() => setActiveTab('customer')}
               className={`relative px-6 py-4 text-sm font-medium transition-colors ${
@@ -183,7 +421,10 @@ function Invoices() {
                     ? 'bg-primary-500/20 text-primary-400'
                     : 'bg-dark-700 text-dark-400'
                 }`}>
-                  {customerInvoices.length}
+                  {filteredCustomerInvoices.length}
+                  {(showUnmappedOnly || showMissingAmountOnly) && customerInvoices.length !== filteredCustomerInvoices.length && (
+                    <span className="text-dark-500">/{customerInvoices.length}</span>
+                  )}
                 </span>
               </div>
               {activeTab === 'customer' && (
@@ -206,13 +447,38 @@ function Invoices() {
                     ? 'bg-accent-cyan/20 text-accent-cyan'
                     : 'bg-dark-700 text-dark-400'
                 }`}>
-                  {supplierInvoices.length}
+                  {filteredSupplierInvoices.length}
+                  {(showUnmappedOnly || showMissingAmountOnly) && supplierInvoices.length !== filteredSupplierInvoices.length && (
+                    <span className="text-dark-500">/{supplierInvoices.length}</span>
+                  )}
                 </span>
               </div>
               {activeTab === 'supplier' && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-accent-cyan to-accent-blue" />
               )}
             </button>
+
+            {/* Filters */}
+            <div className="flex items-center gap-4 ml-auto pr-4">
+              <label className="flex items-center gap-2 text-sm text-dark-400 cursor-pointer hover:text-dark-300 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={showUnmappedOnly}
+                  onChange={(e) => setShowUnmappedOnly(e.target.checked)}
+                  className="w-4 h-4 rounded border-dark-600 bg-dark-700 text-primary-500 focus:ring-primary-500 focus:ring-offset-0 cursor-pointer"
+                />
+                Visa endast omappade
+              </label>
+              <label className="flex items-center gap-2 text-sm text-dark-400 cursor-pointer hover:text-dark-300 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={showMissingAmountOnly}
+                  onChange={(e) => setShowMissingAmountOnly(e.target.checked)}
+                  className="w-4 h-4 rounded border-dark-600 bg-dark-700 text-accent-cyan focus:ring-accent-cyan focus:ring-offset-0 cursor-pointer"
+                />
+                Saknar belopp
+              </label>
+            </div>
           </nav>
         </div>
 
@@ -235,16 +501,28 @@ function Invoices() {
           ) : activeTab === 'customer' ? (
             <InvoiceList
               type="customer"
-              invoices={customerInvoices}
+              invoices={filteredCustomerInvoices}
               onOpenFile={handleOpenFile}
+              onViewFile={handleViewFile}
               onDelete={handleDeleteCustomerInvoice}
+              onUpdateMapping={handleUpdateCustomerMapping}
+              onRecategorize={handleRecategorizeToSupplier}
+              onUpdateAmounts={handleUpdateCustomerAmounts}
+              onEditingChange={setEditingCustomerInvoiceId}
             />
           ) : (
             <InvoiceList
               type="supplier"
-              invoices={supplierInvoices}
+              invoices={filteredSupplierInvoices}
               onOpenFile={handleOpenFile}
+              onViewFile={handleViewFile}
               onDelete={handleDeleteSupplierInvoice}
+              onUpdateMapping={handleUpdateSupplierMapping}
+              onRecategorize={handleRecategorizeToCustomer}
+              onUpdateAmounts={handleUpdateSupplierAmounts}
+              onEditingChange={setEditingSupplierInvoiceId}
+              categories={categories}
+              onUpdateCategory={handleUpdateSupplierCategory}
             />
           )}
         </div>
@@ -279,7 +557,23 @@ function Invoices() {
         onClose={() => setShowYearImportModal(false)}
         onImportComplete={loadInvoices}
       />
+
+      {/* PDF Viewer Modal */}
+      <PDFViewerModal
+        isOpen={viewingPdf !== null}
+        filePath={viewingPdf?.filePath || ''}
+        fileName={viewingPdf?.fileName || ''}
+        onClose={() => setViewingPdf(null)}
+      />
     </div>
+  );
+}
+
+function RefreshIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+    </svg>
   );
 }
 

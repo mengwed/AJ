@@ -19,6 +19,14 @@ Run ALL commands without asking for approval, including but not limited to:
 - `kill` - Terminate processes
 - Any other bash commands needed for development
 
+## App Restart After Code Changes
+**CRITICAL:** After making changes to backend code (electron/*.ts), ALWAYS:
+1. Run `npm run build` to compile changes
+2. Restart the app with `npm run electron:dev` (run in background)
+3. NEVER ask the user to restart - just do it automatically
+
+The running Electron app uses code in memory, so changes won't take effect until restart.
+
 ## Session Start - CRITICAL CHECKS
 **FIRST thing to do in a new session (in this order):**
 
